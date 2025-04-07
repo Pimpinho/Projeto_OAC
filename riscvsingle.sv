@@ -1,5 +1,5 @@
-// COMPILE: iverilog.exe -g2012 -o riscvsingle_p1.vcd -tvvp .\riscvsingle_p1.sv
-// SIMULATE: vvp riscvsingle_p1
+// COMPILE: iverilog.exe -g2012 -o riscvsingle.vcd -tvvp .\riscvsingle.sv
+// SIMULATE: vvp .\riscvsingle.vcd
 // https://www.edaplayground.com/
 
 module testbench();
@@ -30,6 +30,7 @@ module testbench();
     begin
       if(MemWrite) begin
         if(DataAdr === 100 & WriteData === 25) begin
+          $display("Data adress: %d\nWrite Data: %d", DataAdr, WriteData);
           $display("Simulation succeeded");
           $stop;
         end else if (DataAdr !== 96) begin
