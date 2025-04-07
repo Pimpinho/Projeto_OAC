@@ -39,20 +39,24 @@ module testbench();
       end
     end
 endmodule
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 module top(input  logic        clk, reset, 
            output logic [31:0] WriteData, DataAdr, 
            output logic        MemWrite,
-           output logic        PCSrc);
+           output logic        PCSrc);  //// [MODIFICAÇAO] PCSrc nao estava sendo passado como saida do modulo e era exigido no testbench
+                                        //// como esta na saida do moulo mais acima, agora esta visivel para os outros niveis ////
 
   logic [31:0] PC, Instr, ReadData;
   
   // instantiate processor and memories
   riscvsingle rvsingle(clk, reset, PC, Instr, MemWrite, DataAdr, 
-                     WriteData, ReadData, PCSrc);
+                     WriteData, ReadData, PCSrc); //// [MODIFICAÇAO] PCSrc nao estava sendo passado ////
+                                                  
   imem imem(PC, Instr);
   dmem dmem(clk, MemWrite, DataAdr, WriteData, ReadData);
 endmodule
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 module riscvsingle(input  logic        clk, reset,
                   output logic [31:0] PC,
@@ -60,9 +64,10 @@ module riscvsingle(input  logic        clk, reset,
                   output logic        MemWrite,
                   output logic [31:0] ALUResult, WriteData,
                   input  logic [31:0] ReadData,
-                  output logic        PCSrc);
+                  output logic        PCSrc); //// [MODIFICAÇAO] antes o PCSrc nao estava sendo passado como saida do modulo
+                                              //// logo nao se tornava visivel para outros modulos ////
 
-  logic       ALUSrc, RegWrite, Jump, Zero;
+  logic       ALUSrc, RegWrite, Jump, Zero;   //// [MODIFICAÇAO] PCSrc foi removido dessa declaracao e foi para a saida do modulo ////
   logic [1:0] ResultSrc, ImmSrc;
   logic [2:0] ALUControl;
 
@@ -76,6 +81,7 @@ module riscvsingle(input  logic        clk, reset,
               Zero, PC, Instr,
               ALUResult, WriteData, ReadData);
 endmodule
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 module controller(input  logic [6:0] op,
                   input  logic [2:0] funct3,
@@ -91,12 +97,14 @@ module controller(input  logic [6:0] op,
   logic [1:0] ALUOp;
   logic       Branch;
 
-  maindec decoder(op, ResultSrc, MemWrite, Branch, ALUSrc, RegWrite, Jump, ImmSrc, ALUOp);
+  maindec md(op, ResultSrc, MemWrite, Branch, ALUSrc, RegWrite, Jump, ImmSrc, ALUOp);
   
-  aludec alu_decoder(op[5], funct3, funct7b5, ALUOp, ALUControl);
+  aludec ad(op[5], funct3, funct7b5, ALUOp, ALUControl);
 
-  assign PCSrc = (Branch & Zero) | Jump;
+  assign PCSrc = (Branch & Zero) | Jump; //// [MODIFICAÇAO] antes o assign era PCSrc = Branch & Zero
+                                         ////Ou seja, instruçoes de Jump nao eram tratadas ////
 endmodule
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 module maindec(input  logic [6:0] op,
               output logic [1:0] ResultSrc,
@@ -111,8 +119,10 @@ module maindec(input  logic [6:0] op,
   logic [10:0] controls;
 
   assign {RegWrite, ImmSrc, ALUSrc, MemWrite,
-          ResultSrc, Branch, ALUOp, Jump} = controls;
+          ResultSrc, Branch, ALUOp, Jump} = controls; //// [MODIFICAÇAO]             
+  
 
+  
   always_comb
     case(op)
     // RegWrite_ImmSrc_ALUSrc_MemWrite_ResultSrc_Branch_ALUOp_Jump
@@ -120,11 +130,20 @@ module maindec(input  logic [6:0] op,
       7'b0100011: controls = 11'b0_01_1_1_00_0_00_0; // sw
       7'b0110011: controls = 11'b1_xx_0_0_00_0_10_0; // R-type 
       7'b1100011: controls = 11'b0_10_0_0_00_1_01_0; // beq
-      7'b0010011: controls = 11'b1_00_1_0_00_0_00_0; // I-type ALU (addi, ori, andi, slti)
-      7'b1101111: controls = 11'b1_11_0_0_10_0_00_1; // jal
+      7'b0010011: controls = 11'b1_00_1_0_00_0_00_0; // I-type ALU (addi, ori, andi, slti) //// [MODIFICAÇAO] antes nao existia essa linha ////
+      7'b1101111: controls = 11'b1_11_0_0_10_0_00_1; // jal  //// [MODIFICAÇAO] antes nao existia essa linha ////
       default:    controls = 11'bx_xx_x_x_xx_x_xx_x; // non-implemented instruction
     endcase
 endmodule
+
+  
+  // [MODIFICAÇÃO] Adicionado suporte a:
+  // 1. assign de Jump em controls - para instruçoes JAL
+  // 2. I-type (0010011) - operaçoes imediatas
+  // 3. JAL (1101111) - jump and link
+  // Controles atualizados: {RegWrite,ImmSrc,ALUSrc,MemWrite,ResultSrc,Branch,ALUOp,Jump}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 module aludec(input  logic       opb5,
              input  logic [2:0] funct3,
@@ -151,6 +170,7 @@ module aludec(input  logic       opb5,
                endcase
     endcase
 endmodule
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 module datapath(input  logic        clk, reset,
                input  logic [1:0]  ResultSrc,
@@ -173,19 +193,23 @@ module datapath(input  logic        clk, reset,
 
   // PC logic
   flopr #(32) pc_reg(clk, reset, PCNext, PC);
-  adder       pc_incr(PC, 32'd4, PCPlus4);
-  adder       pc_branch(PC, ImmExt, PCTarget);
-  mux2 #(32) pc_mux(PCPlus4, PCTarget, PCSrc, PCNext);
+  adder       pcadd4(PC, 32'd4, PCPlus4);
+  adder       pcaddbranch(PC, ImmExt, PCTarget);
+  mux2 #(32)  pcmux(PCPlus4, PCTarget, PCSrc, PCNext);
 
   // Register file and immediate generation
   regfile rf(clk, RegWrite, Instr[19:15], Instr[24:20], Instr[11:7], Result, SrcA, WriteData);
   extend ext(Instr[31:7], ImmSrc, ImmExt);
 
   // ALU logic
-  mux2 #(32) srcbmux(WriteData, ImmExt, ALUSrc, SrcB);
-  alu alu(SrcA, SrcB, ALUControl, ALUResult, Zero);
-  mux3 #(32) resultmux(ALUResult, ReadData, PCPlus4, ResultSrc, Result);
+  mux2 #(32)  srcbmux(WriteData, ImmExt, ALUSrc, SrcB);
+  alu         alu(SrcA, SrcB, ALUControl, ALUResult, Zero);
+  mux3 #(32)  resultmux(ALUResult, ReadData, PCPlus4, ResultSrc, Result); 
+  
+  //// [MODIFICAÇAO] nessa linha onde agora tem PCPlus4, antes era 32'b0 (zero) o que nao tinha utilidade e fazia nao dar suporte a instruçoes de JAL
+  //// agora é possivel fazer o jump e link, ou seja, guardar o endereco de retorno no registrador 
 endmodule
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 module regfile(input  logic        clk, 
                input  logic        we3, 
@@ -206,26 +230,34 @@ module regfile(input  logic        clk,
   assign rd1 = (a1 != 0) ? rf[a1] : 0;
   assign rd2 = (a2 != 0) ? rf[a2] : 0;
 endmodule
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 module adder(input  [31:0] a, b,
              output [31:0] y);
 
   assign y = a + b;
 endmodule
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 module extend(input  logic [31:7] instr,
               input  logic [1:0]  immsrc,
               output logic [31:0] immext);
- 
-  always_comb
-    case(immsrc) 
-      2'b00:   immext = {{20{instr[31]}}, instr[31:20]}; // I-type
-      2'b01:   immext = {{20{instr[31]}}, instr[31:25], instr[11:7]}; // S-type 
-      2'b10:   immext = {{20{instr[31]}}, instr[31], instr[7], instr[30:25], instr[11:8], 1'b0}; // B-type
-      2'b11:   immext = {{12{instr[31]}}, instr[19:12], instr[20], instr[30:21], 1'b0}; // J-type
-      default: immext = 32'bx;
-    endcase             
+
+  assign immext = 
+    (immsrc == 2'b00) ? {{20{instr[31]}}, instr[31:20]} : // I-type  //// [MODIFICAÇAO] formato I-Type adicionado
+    //// Adicionado para dar suporte para instruçoes aritimeticas com imediato e instruçoes de load
+
+    (immsrc == 2'b01) ? {{20{instr[31]}}, instr[31:25], instr[11:7]} : // S-type
+    
+    (immsrc == 2'b10) ? {{20{instr[31]}}, instr[31], instr[7], instr[30:25], instr[11:8], 1'b0} : // B-type //// [MODIFICAÇAO] formato B-Type adicionado
+    //// Bits reorganizados em B-Type para fazer corretamente o calculo do offset para o endereco do branch
+                        //extensao sinal | bit 12 | bit 11 | bits 10-5 | bits 4-1 | bit 0
+    
+    (immsrc == 2'b11) ? {{12{instr[31]}}, instr[19:12], instr[20], instr[30:21], 1'b0} : // J-type
+    32'bx; // default
 endmodule
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 module flopr #(parameter WIDTH = 8)
               (input  logic             clk, reset,
@@ -236,6 +268,7 @@ module flopr #(parameter WIDTH = 8)
     if (reset) q <= 0;
     else       q <= d;
 endmodule
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 module mux2 #(parameter WIDTH = 8)
              (input  logic [WIDTH-1:0] d0, d1, 
@@ -244,6 +277,7 @@ module mux2 #(parameter WIDTH = 8)
 
   assign y = s ? d1 : d0; 
 endmodule
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 module mux3 #(parameter WIDTH = 8)
              (input  logic [WIDTH-1:0] d0, d1, d2,
@@ -252,6 +286,7 @@ module mux3 #(parameter WIDTH = 8)
 
   assign y = s[1] ? d2 : (s[0] ? d1 : d0); 
 endmodule
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 module imem(input  logic [31:0] a,
             output logic [31:0] rd);
@@ -263,6 +298,7 @@ module imem(input  logic [31:0] a,
 
   assign rd = RAM[a[31:2]]; // word aligned
 endmodule
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 module dmem(input  logic        clk, we,
             input  logic [31:0] a, wd,
@@ -275,6 +311,7 @@ module dmem(input  logic        clk, we,
   always_ff @(posedge clk)
     if (we) RAM[a[31:2]] <= wd;
 endmodule
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 module alu(input  logic [31:0] a, b,
            input  logic [2:0]  alucontrol,
@@ -290,18 +327,16 @@ module alu(input  logic [31:0] a, b,
   assign isAddSub = ~alucontrol[2] & ~alucontrol[1] |
                     ~alucontrol[1] & alucontrol[0];
 
-  always_comb
-    case (alucontrol)
-      3'b000:  result = sum;         // add
-      3'b001:  result = sum;         // subtract
-      3'b010:  result = a & b;       // and
-      3'b011:  result = a | b;       // or
-      3'b100:  result = a ^ b;       // xor
-      3'b101:  result = sum[31] ^ v; // slt
-      3'b110:  result = a << b[4:0]; // sll
-      3'b111:  result = a >> b[4:0]; // srl
-      default: result = 32'bx;
-    endcase
+  assign result = 
+    (alucontrol == 3'b000) ? sum :              // add
+    (alucontrol == 3'b001) ? sum :              // sub  
+    (alucontrol == 3'b010) ? (a & b) :          // and
+    (alucontrol == 3'b011) ? (a | b) :          // or  
+    (alucontrol == 3'b100) ? (a ^ b) :          // xor
+    (alucontrol == 3'b101) ? (sum[31] ^ v) :    // slt
+    (alucontrol == 3'b110) ? (a << b[4:0]) :    // sll
+    (alucontrol == 3'b111) ? (a >> b[4:0]) :    // srl
+    32'bx;
 
   assign zero = (result == 32'b0);
   assign v = ~(alucontrol[0] ^ a[31] ^ b[31]) & (a[31] ^ sum[31]) & isAddSub;
