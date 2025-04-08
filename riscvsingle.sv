@@ -5,10 +5,13 @@
 // Módulo de testes
 module testbench();
 
-  logic        clk;
-  logic        reset;
+  logic        clk; // Sinal de clock
+  logic        reset; // Sinnal de reset
+  
+  //WriteData e DataAdr tem tamanho de 32 bits (tamanho de uma "word" em RISCV).
 
-  logic [31:0] WriteData, DataAdr; //WriteData e DataAdr tem tamanho de 32 bits (tamanho de uma "word" em RISCV).
+  logic [31:0] WriteData;
+  logic [31:0] DataAdr; 
   logic        MemWrite;
 
   // instantiate device to be tested
@@ -41,7 +44,7 @@ module testbench();
     end
 endmodule
 
-//Módulo principal, conecta os módulos riscsingle, imem e dmem
+//Módulo inicial, conecta os módulos riscsingle, imem e dmem
 module top(input  logic        clk, reset, 
            output logic [31:0] WriteData, //valor que será escrito em dmem (data memory) em operações de sw (store word)
            output logic [31:0] DataAdr, // Endereço de memória (base + offset) calculado pela ALU 
