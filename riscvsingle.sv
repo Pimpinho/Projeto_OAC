@@ -15,7 +15,7 @@ module testbench();
   logic [31:0] DataAdr; 
   logic        MemWrite;
 
-  // instantiate device to be tested
+  // Módulo mais "alto nível"
   top dut(clk, reset, WriteData, DataAdr, MemWrite); // Instanciando o módulo "top" com nome de instancia "dut" (devide under test).
   
   // initialize test
@@ -55,8 +55,8 @@ module top(input  logic        clk, reset,
   logic [31:0] PC; // Guarda o endereço da próxima instrução
   
   // instancia o processador (rvsingle), instruction memory (imem) e data memory(dmem)
-  riscvsingle rvsingle(clk, reset, PC, Instr, MemWrite, DataAdr, // OBSERVAR QUE: Quando instanciado, DataAdr vai com nomes diferentes para os módulos,   
-                     WriteData, ReadData, PCSrc);                // mas fora desse contexto ele é chamado de DataAdr (no testbench)
+  riscvsingle rvsingle(clk, reset, PC, Instr, MemWrite, DataAdr, // OBSERVAR QUE: Quando instanciado, DataAdr vai com nomes diferentes para os módulos, mas fora desse contexto ele é chamado de DataAdr (no testbench) 
+                     WriteData, ReadData, PCSrc); //Modificação: Add PCSrc na instanciação do módulo riscvsingle                
   imem imem(PC, Instr);
   dmem dmem(clk, MemWrite, DataAdr, WriteData, ReadData);
 endmodule
@@ -70,7 +70,7 @@ module riscvsingle(input  logic        clk, reset,
                   output logic [31:0]  WriteData, // Dado a ser escrito na memória
                   input  logic [31:0] ReadData, // Dado lido da memória de dados (input do Data Memory)
                   output logic        PCSrc); // Sinal que decide se haverá salto
-
+                                    // [MODIFICAÇAO] PCSrc nao estava sendo passado //
   logic       ALUSrc; // seleciona entre registrador e imediato como segundo operando da ALU
   logic       RegWrite; // ativa escrita no banco de registradores
   logic       Jump; // instrução de salto
