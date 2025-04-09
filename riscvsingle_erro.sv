@@ -1,6 +1,5 @@
-// COMPILE: iverilog.exe -g2012 -o riscvsingle_p1.vcd -tvvp .\riscvsingle_p1.sv
-// SIMULATE: vvp riscvsingle_p1
-// https://www.edaplayground.com/
+//COMPILE: iverilog.exe -g2012 -o riscvsingle_erro.vcd -tvvp .\riscvsingle_erro.sv
+//SIMULATE: vvp riscvsingle_erro
 
 module testbench();
 
@@ -60,7 +59,7 @@ module riscvsingle(input  logic        clk, reset,
                    output logic [31:0] ALUResult, WriteData,
                    input  logic [31:0] ReadData);
 
-  logic       ALUSrc, RegWrite, Jump, Zero, PCSrc;
+  logic       ALUSrc, RegWrite, Jump, Zero;
   logic [1:0] ResultSrc, ImmSrc;
   logic [2:0] ALUControl;
 
