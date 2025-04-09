@@ -91,6 +91,10 @@ module riscvsingle(input  logic        clk, reset,
               ALUResult, WriteData, ReadData);
 endmodule
 
+
+//  31---------20 | 19----15 | 14---12 | 11----7 | 6-----0
+//  [ immediate ] |   rs1    | funct3  |   rd    | opcode
+
 // Com base nos campos de instrução, o controller gera sinais de controle para o datapath, e para a ULA (qual operação realizar)
 module controller(input  logic [6:0] op,
                   input  logic [2:0] funct3,
@@ -110,7 +114,8 @@ module controller(input  logic [6:0] op,
   
   aludec alu_decoder(op[5], funct3, funct7b5, ALUOp, ALUControl);
 
-  assign PCSrc = (Branch & Zero) | Jump;
+  assign PCSrc = (Branch & Zero) | Jump; // ++ [MODIFICAÇAO] antes o assign era PCSrc = Branch & Zero
+                                         ////Ou seja, instruçoes de Jump nao eram tratadas ////
 endmodule
 
 // Gera sinais de controle com base no campo opcode (op) da instrução RISC-V.
@@ -128,7 +133,7 @@ module maindec(input  logic [6:0] op,
   logic [10:0] controls;
 
   assign {RegWrite, ImmSrc, ALUSrc, MemWrite,
-          ResultSrc, Branch, ALUOp, Jump} = controls;
+          ResultSrc, Branch, ALUOp, Jump} = controls; // ++ [MODIFICAÇAO] add Jump para jal
 
   always_comb
     case(op)
@@ -137,8 +142,8 @@ module maindec(input  logic [6:0] op,
       7'b0100011: controls = 11'b0_01_1_1_00_0_00_0; // sw
       7'b0110011: controls = 11'b1_xx_0_0_00_0_10_0; // R-type 
       7'b1100011: controls = 11'b0_10_0_0_00_1_01_0; // beq
-      7'b0010011: controls = 11'b1_00_1_0_00_0_00_0; // I-type ALU (addi, ori, andi, slti)
-      7'b1101111: controls = 11'b1_11_0_0_10_0_00_1; // jal
+      7'b0010011: controls = 11'b1_00_1_0_00_0_00_0; // I-type ALU (addi, ori, andi, slti) // ++ [MODIFICAÇAO] antes nao existia essa linha ////
+      7'b1101111: controls = 11'b1_11_0_0_10_0_00_1; // jal // ++ [MODIFICAÇAO] antes nao existia essa linha
       default:    controls = 11'bx_xx_x_x_xx_x_xx_x; // non-implemented instruction
     endcase
 endmodule
@@ -170,6 +175,7 @@ module aludec(input  logic       opb5,
     endcase
 endmodule
 
+// Onde os dados fluem e são processados conforme o tipo da instrução, que o controller nos forneceu
 module datapath(input  logic        clk, reset,
                input  logic [1:0]  ResultSrc,
                input  logic        PCSrc,
@@ -206,6 +212,9 @@ module datapath(input  logic        clk, reset,
   mux3 #(32) resultmux(ALUResult, ReadData, PCPlus4, ResultSrc, Result);
 endmodule
 
+  //// ++ [MODIFICAÇAO] nessa linha onde agora tem PCPlus4, antes era 32'b0 (zero) o que nao tinha utilidade e fazia nao dar suporte a instruçoes de JAL
+  //// agora é possivel fazer o jump e link, ou seja, guardar o endereco de retorno no registrador 
+
 // Banco de registradores
 module regfile(input  logic        clk, 
                input  logic        we3, // (recebe o sinal de RegWrite) Write enable 3 - verificação se we3 será 1 ou 0
@@ -229,15 +238,17 @@ module adder(input  [31:0] a, b,
 endmodule
 
 // pega os bits do imediato da instrução (em formatos como I, S, B, J) e transforma esse valor em um número de 32 bits com sinal
+// o módulo extend junta e estende com sinal (sign-extend) para transformar esse valor em um inteiro de 32 bits pronto para ser usado.
+// A depender do tipo de instruão (que o immsrc recebe) ela tem tamanhos diferentes de imediato
 module extend(input  logic [31:7] instr,
               input  logic [1:0]  immsrc, // Formato de imediato ()
               output logic [31:0] immext);
  
   always_comb
     case(immsrc) 
-      2'b00:   immext = {{20{instr[31]}}, instr[31:20]}; // I-type
-      2'b01:   immext = {{20{instr[31]}}, instr[31:25], instr[11:7]}; // S-type 
-      2'b10:   immext = {{20{instr[31]}}, instr[31], instr[7], instr[30:25], instr[11:8], 1'b0}; // B-type
+      2'b00:   immext = {{20{instr[31]}}, instr[31:20]}; // I-type 
+      2'b01:   immext = {{20{instr[31]}}, instr[31:25], instr[11:7]}; // S-type // ++ [MODIFICAÇAO] formato S-Type adicionado
+      2'b10:   immext = {{20{instr[31]}}, instr[31], instr[7], instr[30:25], instr[11:8], 1'b0}; // B-type // ++ [MODIFICAÇAO] formato B-Type adicionado
       2'b11:   immext = {{12{instr[31]}}, instr[19:12], instr[20], instr[30:21], 1'b0}; // J-type
       default: immext = 32'bx;
     endcase             
@@ -281,15 +292,18 @@ module imem(input  logic [31:0] a,
       $readmemh("riscvtest.txt",RAM,0 , 20); // Carrega os valores de arquivo txt no vetor RAM, de 0 a 20 (nosso código em RISCV possui 21 instruções)
 
   assign rd = RAM[a[31:2]]; // word aligned, basicamente um shift bit de 2 (divindo assim o número por 4).
-endmodule                   // exemplo: Se queremos a segunda instrução, "a" (recebido de PC) será 0x1. Porém 0x1 no nosso vetor RAM é o segundo byte da primeira word,
+endmodule                   // exemplo: Se queremos acessar a segunda posição da memória(ou a segunda instrução do programa), "a" (recebido de PC) será 0x1. Porém 0x1 no nosso vetor RAM é o segundo byte da primeira word,
                             // na verdade nós queremos 0x4 na RAM, por isso dividimos a RAM por 4 (RAM[a >> 2])
+
+// representa a memória de dados em um processador, geralmente usada para acessar variáveis armazenadas na RAM,
+// especialmente nas instruções do tipo lw e sw
 module dmem(input  logic        clk, we,
             input  logic [31:0] a, wd,
             output logic [31:0] rd);
 
   logic [31:0] RAM[63:0];
 
-  assign rd = RAM[a[31:2]]; // word aligned
+  assign rd = RAM[a[31:2]]; // word aligned // shift bit 2
 
   always_ff @(posedge clk)
     if (we) RAM[a[31:2]] <= wd;
