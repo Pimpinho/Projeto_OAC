@@ -56,7 +56,7 @@ module top(input  logic        clk, reset,
   
   // instancia o processador (rvsingle), instruction memory (imem) e data memory(dmem)
   riscvsingle rvsingle(clk, reset, PC, Instr, MemWrite, DataAdr, // OBSERVAR QUE: Quando instanciado, DataAdr vai com nomes diferentes para os módulos, mas fora desse contexto ele é chamado de DataAdr (no testbench) 
-                     WriteData, ReadData, PCSrc); //Modificação: Add PCSrc na instanciação do módulo riscvsingle                
+                     WriteData, ReadData);             
   imem imem(PC, Instr);
   dmem dmem(clk, MemWrite, DataAdr, WriteData, ReadData);
 endmodule
@@ -68,14 +68,13 @@ module riscvsingle(input  logic        clk, reset,
                   output logic        MemWrite, // ativa escrita na memória de dados
                   output logic [31:0] ALUResult, // Resultado da ALU
                   output logic [31:0]  WriteData, // Dado a ser escrito na memória
-                  input  logic [31:0] ReadData, // Dado lido da memória de dados (input do Data Memory)
-                  output logic        PCSrc); // Sinal que decide se haverá salto
-                                    // [MODIFICAÇAO] PCSrc nao estava sendo passado //
+                  input  logic [31:0] ReadData); // Dado lido da memória de dados (input do Data Memory)
+               
   logic       ALUSrc; // seleciona entre registrador e imediato como segundo operando da ALU
   logic       RegWrite; // ativa escrita no banco de registradores
   logic       Jump; // instrução de salto
   logic       Zero; // flag da ALU, usada para branch (ex: beq verifica se resultado foi zero)
-
+  logic        PCSrc; // Sinal que decide se haverá salto
   logic [1:0] ResultSrc; // Seleciona a origem do dado que será escrito no registrador (ALU, memória, PC+4)
   logic [1:0] ImmSrc; // controla o tipo de extração do valor imediato
   logic [2:0] ALUControl; // Define a operação que será feita na alu (8 opções)
