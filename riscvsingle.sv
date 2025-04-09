@@ -2,6 +2,7 @@
 // SIMULATE: vvp .\riscvsingle.vcd
 // Simulador online: https://www.edaplayground.com/ 
 
+
 // Módulo de testes
 module testbench();
 
@@ -15,7 +16,7 @@ module testbench();
   logic        MemWrite;
 
   // instantiate device to be tested
-  top dut(clk, reset, WriteData, DataAdr, MemWrite, PCSrc); // Instanciando o módulo "top" com nome de instancia "dut" (devide under test).
+  top dut(clk, reset, WriteData, DataAdr, MemWrite); // Instanciando o módulo "top" com nome de instancia "dut" (devide under test).
   
   // initialize test
   initial
@@ -48,8 +49,7 @@ endmodule
 module top(input  logic        clk, reset, 
            output logic [31:0] WriteData, //valor que será escrito em dmem (data memory) em operações de sw (store word)
            output logic [31:0] DataAdr, // Endereço de memória (base + offset) calculado pela ALU 
-           output logic        MemWrite, // Sinal que permite (se MemWrite = 1) se o WriteData vai ser armazenado em DataAdr
-           output logic        PCSrc); // Controle de desvio condicional (em caso de beq, jal), caso seja 0, PC segue normalmente (PC+4)
+           output logic        MemWrite); // Controle de desvio condicional (em caso de beq, jal), caso seja 0, PC segue normalmente (PC+4)
 
   logic [31:0] Instr, ReadData;
   logic [31:0] PC; // Guarda o endereço da próxima instrução
