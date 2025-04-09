@@ -1,33 +1,49 @@
 // Transformar HDL em diagrama: https://digitaljs.tilk.eu/
-
-//Módulo inicial, conecta os módulos riscsingle, imem e dmem
+/**/
 module testbench();
 
-  logic        clk;
-  logic        reset;
+  logic        clk; // Sinal de clock
+  logic        reset; // Sinnal de reset
+  
+  //WriteData e DataAdr tem tamanho de 32 bits (tamanho de uma "word" em RISCV).
 
-  logic [31:0] WriteData, DataAdr;
+  logic [31:0] WriteData;
+  logic [31:0] DataAdr; 
   logic        MemWrite;
 
-  // instantiate device to be tested
-  top dut(clk, reset, WriteData, DataAdr, MemWrite);
+  // Módulo mais "alto nível"
+  top dut(clk, reset, WriteData, DataAdr, MemWrite); // Instanciando o módulo "top" com nome de instancia "dut" (devide under test).
   
   // initialize test
   initial
     begin
-      reset <= 1; # 22; reset <= 0;
+      reset <= 1; # 22; reset <= 0; // Ativa o reset, espera 22 u.t. e depois desliga o reset.
     end
 
   // generate clock to sequence tests
   always
     begin
-      clk <= 1; # 5; clk <= 0; # 5;
+      clk <= 1; # 5; clk <= 0; # 5; //Período de 10 unidades de tempo (5 u.t. com clk = 1, 5 u.t. com clock = 0)
     end
 
-  // check results
- 
+  /*// check results
+  always @(negedge clk) // Prestar atenção, pois é sensível a borda negativa (negedge)
+    begin
+      if(MemWrite) begin
+        if(DataAdr === 100 & WriteData === 25) begin
+          $display("Simulation succeeded");
+          $stop;
+        end else if (DataAdr !== 96) begin
+          $display("Simulation failed");
+          $stop;
+        end
+      end
+    end
+    */
+
 endmodule
 
+//Módulo inicial, conecta os módulos riscsingle, imem e dmem
 module top(input  logic        clk, reset, 
            output logic [31:0] WriteData, //valor que será escrito em dmem (data memory) em operações de sw (store word)
            output logic [31:0] DataAdr, // Endereço de memória (base + offset) calculado pela ALU 
@@ -37,8 +53,8 @@ module top(input  logic        clk, reset,
   logic [31:0] PC; // Guarda o endereço da próxima instrução
   
   // instancia o processador (rvsingle), instruction memory (imem) e data memory(dmem)
-  riscvsingle rvsingle(clk, reset, PC, Instr, MemWrite, DataAdr, // OBSERVAR QUE: Quando instanciado, DataAdr vai com nomes diferentes para os módulos,   
-                     WriteData, ReadData, PCSrc);                // mas fora desse contexto ele é chamado de DataAdr (no testbench)
+  riscvsingle rvsingle(clk, reset, PC, Instr, MemWrite, DataAdr, // OBSERVAR QUE: Quando instanciado, DataAdr vai com nomes diferentes para os módulos, mas fora desse contexto ele é chamado de DataAdr (no testbench) 
+                     WriteData, ReadData);             
   imem imem(PC, Instr);
   dmem dmem(clk, MemWrite, DataAdr, WriteData, ReadData);
 endmodule
@@ -50,14 +66,13 @@ module riscvsingle(input  logic        clk, reset,
                   output logic        MemWrite, // ativa escrita na memória de dados
                   output logic [31:0] ALUResult, // Resultado da ALU
                   output logic [31:0]  WriteData, // Dado a ser escrito na memória
-                  input  logic [31:0] ReadData, // Dado lido da memória de dados (input do Data Memory)
-                  output logic        PCSrc); // Sinal que decide se haverá salto
-
+                  input  logic [31:0] ReadData); // Dado lido da memória de dados (input do Data Memory)
+               
   logic       ALUSrc; // seleciona entre registrador e imediato como segundo operando da ALU
   logic       RegWrite; // ativa escrita no banco de registradores
   logic       Jump; // instrução de salto
   logic       Zero; // flag da ALU, usada para branch (ex: beq verifica se resultado foi zero)
-
+  logic        PCSrc; // Sinal que decide se haverá salto
   logic [1:0] ResultSrc; // Seleciona a origem do dado que será escrito no registrador (ALU, memória, PC+4)
   logic [1:0] ImmSrc; // controla o tipo de extração do valor imediato
   logic [2:0] ALUControl; // Define a operação que será feita na alu (8 opções)
@@ -260,9 +275,9 @@ module imem(input  logic [31:0] a,
 
   logic [31:0] RAM[63:0]; // Cria a memória interna do nosso processador.
                           // Nesse caso, temos um vetor de 64 words, e cada posição é uma word (instrução) de 32 bits (4 bytes). Totalizando uma memória de 256 bytes
-                          // Lembrar que RAM é um vetor de PALAVRAS, ou seja, cada palavra possui 4 bytes. Ou seja, para a próxima instrução, devemos pular 4 bytes.
-                          // Carrega os valores de arquivo txt no vetor RAM, de 0 a 20 (nosso código em RISCV possui 21 instruções)
-
+  /* initial                 // Lembrar que RAM é um vetor de PALAVRAS, ou seja, cada palavra possui 4 bytes. Ou seja, para a próxima instrução, devemos pular 4 bytes.
+      $readmemh("riscvtest.txt",RAM,0 , 20); // Carrega os valores de arquivo txt no vetor RAM, de 0 a 20 (nosso código em RISCV possui 21 instruções)
+  */
   assign rd = RAM[a[31:2]]; // word aligned, basicamente um shift bit de 2 (divindo assim o número por 4).
 endmodule                   // exemplo: Se queremos a segunda instrução, "a" (recebido de PC) será 0x1. Porém 0x1 no nosso vetor RAM é o segundo byte da primeira word,
                             // na verdade nós queremos 0x4 na RAM, por isso dividimos a RAM por 4 (RAM[a >> 2])
