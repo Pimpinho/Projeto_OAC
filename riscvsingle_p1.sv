@@ -11,7 +11,7 @@ module testbench();
   logic        MemWrite;
 
   // instantiate device to be tested
-  top dut(clk, reset, WriteData, DataAdr, MemWrite, PCSrc);
+  top dut(clk, reset, WriteData, DataAdr, MemWrite);
   
   // initialize test
   initial
@@ -43,31 +43,26 @@ endmodule
 
 module top(input  logic        clk, reset, 
            output logic [31:0] WriteData, DataAdr, 
-           output logic        MemWrite,
-           output logic        PCSrc);  //// [MODIFICAÇAO] PCSrc nao estava sendo passado como saida do modulo e era exigido no testbench
-                                        //// como esta na saida do moulo mais acima, agora esta visivel para os outros niveis ////
+           output logic        MemWrite);
 
   logic [31:0] PC, Instr, ReadData;
   
   // instantiate processor and memories
   riscvsingle rvsingle(clk, reset, PC, Instr, MemWrite, DataAdr, 
-                     WriteData, ReadData, PCSrc); //// [MODIFICAÇAO] PCSrc nao estava sendo passado ////
-                                                  
+                       WriteData, ReadData);
   imem imem(PC, Instr);
   dmem dmem(clk, MemWrite, DataAdr, WriteData, ReadData);
 endmodule
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 module riscvsingle(input  logic        clk, reset,
-                  output logic [31:0] PC,
-                  input  logic [31:0] Instr,
-                  output logic        MemWrite,
-                  output logic [31:0] ALUResult, WriteData,
-                  input  logic [31:0] ReadData,
-                  output logic        PCSrc); //// [MODIFICAÇAO] antes o PCSrc nao estava sendo passado como saida do modulo
-                                              //// logo nao se tornava visivel para outros modulos ////
+                   output logic [31:0] PC,
+                   input  logic [31:0] Instr,
+                   output logic        MemWrite,
+                   output logic [31:0] ALUResult, WriteData,
+                   input  logic [31:0] ReadData);
 
-  logic       ALUSrc, RegWrite, Jump, Zero;   //// [MODIFICAÇAO] PCSrc foi removido dessa declaracao e foi para a saida do modulo ////
+  logic       ALUSrc, RegWrite, Jump, Zero, PCSrc;
   logic [1:0] ResultSrc, ImmSrc;
   logic [2:0] ALUControl;
 
