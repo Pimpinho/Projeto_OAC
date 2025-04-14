@@ -1,3 +1,7 @@
+// COMPILE: iverilog.exe -g2012 -o riscvpipelined.vcd -tvvp .\riscvpipelined.sv
+// SIMULATE: vvp .\riscvpipelined.vcd
+// Simulador online: https://www.edaplayground.com/ 
+
 `timescale 1ns/1ps
 module testbench();
 

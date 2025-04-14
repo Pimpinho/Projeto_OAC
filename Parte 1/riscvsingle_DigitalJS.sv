@@ -1,5 +1,5 @@
 // Transformar HDL em diagrama: https://digitaljs.tilk.eu/
-/**/
+
 module testbench();
 
   logic        clk; // Sinal de clock

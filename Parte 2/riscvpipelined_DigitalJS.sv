@@ -1,3 +1,5 @@
+// Transformar HDL em diagrama: https://digitaljs.tilk.eu/
+
 `timescale 1ns/1ps
 module testbench();
 
