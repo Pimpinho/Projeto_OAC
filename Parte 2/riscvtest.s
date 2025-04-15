@@ -8,8 +8,6 @@
 # If successful, it should write the value 25 to address 100
 # https://creatorsim.github.io/creator/
 
-
-
 text.
 
 #   RISC-V Assembly     	Description           Address     Machine Code
