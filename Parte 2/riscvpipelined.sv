@@ -256,6 +256,7 @@ module datapath(input logic clk, reset,
   logic [31:0] PCPlus4W;
   logic [31:0] ResultW;
 
+  // Cria mux2, flopenr, adder, flopenrc, regfile, extend, floprc
   // Fetch stage pipeline register and logic
   mux2    #(32) pcmux(PCPlus4F, PCTargetE, PCSrcE, PCNextF);
   flopenr #(32) pcreg(clk, reset, ~StallF, PCNextF, PCF);
