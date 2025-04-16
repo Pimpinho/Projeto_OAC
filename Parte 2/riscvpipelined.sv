@@ -549,4 +549,3 @@ module alu(input  logic [31:0] a, b,
   assign v = ~(alucontrol[0] ^ a[31] ^ b[31]) & (a[31] ^ sum[31]) & isAddSub;
   
 endmodule
-

@@ -54,8 +54,94 @@ module riscv(input  logic        clk, reset,
               RegWriteW, ResultSrcW,
               Rs1D, Rs2D, Rs1E, Rs2E, RdE, RdM, RdW);
 
+  hazard hu(Rs1D, Rs2D, Rs1E, Rs2E, RdE, RdM, RdW,
+            PCSrcE, ResultSrcEb0, RegWriteM, RegWriteW,
+            ForwardAE, ForwardBE,
+            StallF, StallD, FlushD, FlushE);
 endmodule
 
+// Módulo Hazard - Responsável por detectar e tratar conflitos no pipeline
+// Implementa a lógica de forwarding e stalls para evitar hazards de dados e controle
+module hazard(
+    // Entradas do estágio Decode (D)
+    input  logic [4:0]  Rs1D,  // Registrador fonte 1 no estágio D
+    input  logic [4:0]  Rs2D,  // Registrador fonte 2 no estágio D
+    
+    // Entradas do estágio Execute (E)
+    input  logic [4:0]  Rs1E,  // Registrador fonte 1 no estágio E
+    input  logic [4:0]  Rs2E,  // Registrador fonte 2 no estágio E
+    
+    // Entradas dos registradores destino em diferentes estágios
+    input  logic [4:0]  RdE,   // Registrador destino no estágio E
+    input  logic [4:0]  RdM,   // Registrador destino no estágio M
+    input  logic [4:0]  RdW,   // Registrador destino no estágio W
+    
+    // Sinais de controle
+    input  logic        PCSrcE,        // 1 se há branch/jump no estágio E
+    input  logic        ResultSrcEb0,  // 1 se a instrução em E é um load
+    input  logic        RegWriteM,     // 1 se há escrita no banco reg no estágio M
+    input  logic        RegWriteW,     // 1 se há escrita no banco reg no estágio W
+    
+    // Sinais de saída para forwarding
+    output logic [1:0]  ForwardAE,     // Controle do mux para operando 1 em E
+    output logic [1:0]  ForwardBE,     // Controle do mux para operando 2 em E
+    
+    // Sinais de controle do pipeline
+    output logic       StallF,        // Congela o estágio Fetch
+    output logic       StallD,        // Congela o estágio Decode
+    output logic       FlushD,        // Limpa o estágio Decode
+    output logic       FlushE         // Limpa o estágio Execute
+);
+
+    // Sinal interno para detectar hazard do tipo load-use
+    logic lwStall;
+  
+    // Lógica de forwarding para os operandos da ULA no estágio Execute
+    always_comb begin
+        // Forwarding para o operando 1 (Rs1E):
+        // Prioridade para os dados mais recentes no pipeline
+        if ((Rs1E != 0) && (Rs1E == RdM) && RegWriteM) begin
+            // Dado está no estágio Memory (instrução anterior está em M)
+            ForwardAE = 2'b10; // Seleciona saída da ALU do estágio M
+        end
+        else if ((Rs1E != 0) && (Rs1E == RdW) && RegWriteW) begin
+            // Dado está no estágio Writeback (instrução 2 ciclos atrás)
+            ForwardAE = 2'b01; // Seleciona dado vindo do estágio W
+        end
+        else begin
+            // Sem forwarding - usa valor normal do banco de registradores
+            ForwardAE = 2'b00;
+        end
+    
+        // Forwarding para o operando 2 (Rs2E):
+        // Mesma lógica aplicada ao segundo operando
+        if ((Rs2E != 0) && (Rs2E == RdM) && RegWriteM) begin
+            ForwardBE = 2'b10;
+        end
+        else if ((Rs2E != 0) && (Rs2E == RdW) && RegWriteW) begin
+            ForwardBE = 2'b01;
+        end
+        else begin
+            ForwardBE = 2'b00;
+        end
+    end
+  
+    // Detecção de hazard do tipo load-use:
+    // Ocorre quando uma instrução tenta usar um registrador que está sendo
+    // carregado por uma instrução LW anterior (ainda em execução)
+    assign lwStall = ((Rs1D == RdE) || (Rs2D == RdE)) && ResultSrcEb0;
+  
+    // Controle do pipeline:
+    // Stall (congelamento) necessário apenas para hazards load-use
+    assign StallF = lwStall; // Congela o estágio Fetch
+    assign StallD = lwStall; // Congela o estágio Decode
+    
+    // Flush (limpeza) necessária para:
+    // - Instruções após um branch/jump (PCSrcE)
+    // - Instruções afetadas por hazard load-use
+    assign FlushD = PCSrcE;  // Limpa o estágio Decode em caso de branch/jump
+    assign FlushE = lwStall || PCSrcE; // Limpa Execute para hazards ou branches
+endmodule
 
 module controller(input  logic		 clk, reset,
                   // Decode stage control signals
@@ -217,6 +303,7 @@ module datapath(input logic clk, reset,
   logic [31:0] PCPlus4W;
   logic [31:0] ResultW;
 
+  // Cria mux2, flopenr, adder, flopenrc, regfile, extend, floprc
   // Fetch stage pipeline register and logic
   mux2    #(32) pcmux(PCPlus4F, PCTargetE, PCSrcE, PCNextF);
   flopenr #(32) pcreg(clk, reset, ~StallF, PCNextF, PCF);
